@@ -20,16 +20,10 @@ class NTUDataset(Dataset):
         return [self.x[index], int(self.y[index])]
 
 class NTUDataLoaders(object):
-    #def __init__(self, dataset ='NTU', case = 0, aug = 1, seg = 30, args=None):
-    def __init__(self, args):
-        self.dataset = args.dataset
-        self.case = args.case
-        self.aug = 1
-        self.seg = args.seg
-        self.debug = args.debug
+    def __init__(self):
 
-        self.split_csub = False
-        
+        self.seg = 20
+
         ''' by gzb: 
         create dataset. Generate following variable:
             self.train_X, self.train_Y, self.val_X, self.val_Y, self.test_X, self.test_Y
@@ -47,26 +41,16 @@ class NTUDataLoaders(object):
         print ("GZB: Complete torch.Dataset for test_set, shape is: {} !".format(self.test_X.shape))
 
     def get_train_loader(self, batch_size, num_workers):
-        if self.aug == 0:
-            return DataLoader(self.train_set, batch_size=batch_size,
-                              shuffle=True, num_workers=num_workers,
-                              collate_fn=self.collate_fn_fix_val, pin_memory=False, drop_last=True)
         # by gzb: drop_last: if the samples in last batch is not equal to batch_size, drop this batch for True.
-        elif self.aug ==1:
-            return DataLoader(self.train_set, batch_size=batch_size,
-                              shuffle=True, num_workers=num_workers,
-                              collate_fn=self.collate_fn_fix_train, pin_memory=True, drop_last=True)
+        return DataLoader(self.train_set, batch_size=batch_size,
+                            shuffle=True, num_workers=num_workers,
+                            collate_fn=self.collate_fn_fix_train, pin_memory=True, drop_last=True)
 
     def get_val_loader(self, batch_size, num_workers):
-        if self.dataset == 'NTU' or self.dataset == 'kinetics' or self.dataset == 'NTU120':
-            return DataLoader(self.val_set, batch_size=batch_size,
-                              shuffle=False, num_workers=num_workers,
-                              collate_fn=self.collate_fn_fix_val, pin_memory=True, drop_last=True)
-        else:
-            # by gzb: the follow code line is equal to above ?
-            return DataLoader(self.val_set, batch_size=batch_size,
-                              shuffle=False, num_workers=num_workers,
-                              collate_fn=self.collate_fn_fix_val, pin_memory=True, drop_last=True)
+        return DataLoader(self.val_set, batch_size=batch_size,
+                            shuffle=False, num_workers=num_workers,
+                            collate_fn=self.collate_fn_fix_val, pin_memory=True, drop_last=True)
+
 
     def get_test_loader(self, batch_size, num_workers):
         return DataLoader(self.test_set, batch_size=batch_size,
@@ -83,60 +67,19 @@ class NTUDataLoaders(object):
         return len(self.test_Y)
 
     def create_datasets_from_npz(self):
-        if self.dataset == 'NTU':
-            if self.case == 0:
-                self.metric = 'CS'
-            elif self.case == 1:
-                self.metric = 'CV'
-            path = osp.join('./data/', 'NTU_' + self.metric + '.npz') 
-        
-        #'''
-        # by gzb: new added code read data from NTU_CS.h5 # by gzb: ori code
-        elif self.dataset == 'NTU120':
-            if self.case == 0:
-                self.metric = 'CSub'
-            elif self.case == 1:
-                self.metric = 'CSet'
-            path = osp.join('./data/', 'NTU_' + self.metric + '.npz')
-        #'''
+        print ("GZB: Load data from CS npz file in feeder_ntu.py...")  # by gzb: now added code.
 
-        print ("GZB: Load data from {} npz file in feeder_ntu.py...".format(self.metric))  # by gzb: now added code.
-
+        path = osp.join('./data/', 'NTU_CS.npz')
         npz_data = np.load(path)
 
         self.train_X = npz_data['x_train']
         self.train_Y = np.where(npz_data['y_train'] > 0)[1]
-        #self.train_Y = np.argmax(npz_data['y_train'][:],-1) 
 
         self.test_X = npz_data['x_test']
         self.test_Y = np.where(npz_data['y_test'] > 0)[1]
-        #self.test_Y = np.argmax(npz_data['y_test'][:], -1)
-
-        # by gzb: 20211228. extrat data from label 60 to 119 for training separately
-        if self.split_csub:
-            # for train data
-            idx_train = np.where(self.train_Y > 59)
-            self.train_X = self.train_X[idx_train]
-            self.train_Y = self.train_Y[idx_train]
-
-            # for test data
-            idx_test = np.where(self.test_Y > 59)
-            self.test_X = self.test_X[idx_test]
-            self.test_Y = self.test_Y[idx_test]
-
-        # for debug
-        if self.debug:
-            self.train_X = self.train_X[:2048]
-            self.train_Y = self.train_Y[:2048]
-            self.test_X = self.test_X[:512]
-            self.test_Y = self.test_Y[:512]
 
         self.val_X = self.test_X
         self.val_Y = self.test_Y
-
-        # 20211216
-        self.sample_name_train = ['train_' + str(i) for i in range(len(self.train_Y))]
-        self.sample_name_test = ['test_' + str(i) for i in range(len(self.test_Y))]
 
         print ("GZB: End load data from {} npz file in feeder_ntu.py !!".format(self.metric))  # by gzb: now added code.
 
@@ -145,13 +88,6 @@ class NTUDataLoaders(object):
         """Puts each data field into a tensor with outer dimension batch size
         """
         x, y = zip(*batch)
-
-        # by gzb: not used for ntu dataset
-        if self.dataset == 'kinetics' and self.machine == 'philly':
-            x = np.array(x)
-            x = x.reshape(x.shape[0], x.shape[1],-1)
-            x = x.reshape(-1, x.shape[1] * x.shape[2], x.shape[3]*x.shape[4])
-            x = list(x)
 
         x, y = self.Tolist_fix(x, y, train=1)  # by gzb: shape of x: (sample_num, self.seg, 75), sample_num may be batch_size
 
@@ -165,13 +101,7 @@ class NTUDataLoaders(object):
         y = np.array(y)[idx]  # by gzb: 
         x = torch.stack([torch.from_numpy(x[i]) for i in idx], 0)  # by gzb: Translate type of x from numpy to torch. shape: (idx, self.seq, 75) (20210902). 
 
-        if self.dataset == 'NTU':
-            if self.case == 0:
-                theta = 0.3
-            elif self.case == 1:
-                theta = 0.5
-        elif self.dataset == 'NTU120':
-            theta = 0.3
+        theta = 0.3
 
         #### data augmentation
         # by gzb: execute 3D rotaion, refer to ntu rgb+d60 paper
@@ -241,10 +171,6 @@ class NTUDataLoaders(object):
     def sub_seq(self, seqs, seq, train = 1):
         group = self.seg  # by gzb: is 20 on training
 
-        # by gzb: not used
-        if self.dataset == 'SYSU' or self.dataset == 'SYSU_same':
-            seq = seq[::2, :]
-
         # by gzb: shape of seq is (-1, 75). If the frames num < self.seq, e.g. 11(thres in denoised script) < 20
         # by gzb: 20210902, now seq is restore joint info of one actor (-1, 75)
         if seq.shape[0] < self.seg: # by gzb: here len(seq) is not num_frame after "turn_two_to_one" func; actualy is num of useful actor info of all frames of one sample (joint info are not zeros)
@@ -261,21 +187,7 @@ class NTUDataLoaders(object):
             seqs.append(seq)  # by gzb: random add $self.seg joint info to restore into seqs; shape of seqs is (-1, self.seg, 75) 
 
         elif train == 2:  # by gzb: for test
-            '''
-            offsets1 = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)  # by gzb: len(offsets) is $group (20210902)
-            offsets2 = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)
-            offsets3 = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)
-            offsets4 = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)
-            offsets5 = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)
 
-            seqs.append(seq[offsets1])
-            seqs.append(seq[offsets2])
-            seqs.append(seq[offsets3])
-            seqs.append(seq[offsets4])
-            seqs.append(seq[offsets5])
-            '''
-
-            
             for idx in range(20):
                 offsets = np.multiply(list(range(group)), ave_duration) + np.random.randint(ave_duration, size=group)
                 seqs.append(seq[offsets])

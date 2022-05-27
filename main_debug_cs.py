@@ -213,19 +213,6 @@ def main():
     model = model.cuda()
     test(test_loader, model, checkpoint, lable_path, pred_path)
 
-def main_hcn():
-    model = HCN()
-    #children = list(model.children())
-    #print(children)
-    #print (model)
-
-    total = get_n_params(model)
-    #print(model)
-    print('The number of parameters: ', total)  # by gzb: 2647868 parameters
-
-    if torch.cuda.is_available():
-        print('It is using GPU!')
-        model = model.cuda()
 
 def train(train_loader, model, criterion, optimizer, epoch):
     losses = AverageMeter()

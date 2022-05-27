@@ -26,23 +26,24 @@ from models.cigcn_debug import CascadeModel
 from tools import utils_main
 from tools import arg_configs
 
-def load_data(args):
-    #ntu_loaders = NTUDataLoaders(args.dataset, args.case, seg=args.seg, args=args)
-    ntu_loaders = NTUDataLoaders(args)
+import torch.nn as nn
 
-    # by gzb: new added code, judge whether exeute rot in dataloader.
-    if args.judge_rot == 1:
-        train_loader = ntu_loaders.get_train_loader(args.batch_size, args.workers)
-    else:
-        train_loader = ntu_loaders.gzb_get_train_loader(args.batch_size, args.workers)
+class LabelSmoothingLoss(nn.Module):
+    def __init__(self, classes, smoothing=0.0, dim=-1):
+        super(LabelSmoothingLoss, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
 
-    val_loader = ntu_loaders.get_val_loader(args.batch_size, args.workers)
-    test_loader = ntu_loaders.get_test_loader(args.batch_size_test, args.workers)
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
+        with torch.no_grad():
+            true_dist = torch.zeros_like(pred)
+            true_dist.fill_(self.smoothing / (self.cls - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
-    #'''
-    args.train_loader = train_loader
-    args.test_loader = test_loader
-    args.val_loader = val_loader
 
 class Processor():
     def __init__(self, args):
@@ -60,24 +61,16 @@ class Processor():
         # save args
         utils_main.save_arg(args, self.save_path)
 
-        #self.load_data()
-        if args.judge_inputDataShape == 5:
-            self.load_data()
-        elif args.judge_inputDataShape == 3:
-            self.load_data_sgn()
+        self.load_data_sgn()
 
     def load_model(self):
-        if self.args.network == 'CIGCN':
-            args.network_label = 0
-            model = CIGCN(self.args)
-        elif self.args.network == 'CascadeModel':
-            args.network_label = 1
-            model = CascadeModel(self.args)
+
+        model = CIGCN(self.args)
 
         total = utils_main.get_n_params(model)
         #print(model)s# by gzb: 691048 parameters
         print('The number of parameters: ', total)  # by gzb: 691048 parameters
-        print('The modes is:', self.args.network)  # by gzb: SGN
+        print('The modes is:', 'CIGCN')  # by gzb: SGN
         print('device: {}; test_group: {}.'.format(self.args.device, self.args.test_group))
         print('dataSource: {}; dataType: {}; dataMode: {}.'.format(self.args.judge_dataSource, self.args.judge_dataType, self.args.judge_dataMode))
 
@@ -88,14 +81,18 @@ class Processor():
         self.model = model
 
     def load_data_sgn(self):
-        load_data(self.args)
+        ntu_loaders = NTUDataLoaders()
 
-        self.train_loader = self.args.train_loader
-        self.val_loader =self.args.val_loader
-        self.test_loader =self.args.test_loader
+        train_loader = ntu_loaders.get_train_loader(64, 16)
+        val_loader = ntu_loaders.get_val_loader(64, 16)
+        test_loader = ntu_loaders.get_test_loader(64, 16)
+
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.test_loader = test_loader
 
     def load_params(self):
-        self.criterion = utils_main.LabelSmoothingLoss(self.args.num_classes, smoothing=0.1).cuda(self.device)
+        self.criterion = LabelSmoothingLoss(60, smoothing=0.1).cuda(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
 
         if self.args.monitor == 'val_acc':
@@ -118,33 +115,17 @@ class Processor():
     def load_path(self):
         #output_dir = utils_main.make_dir(self.args.dataset)  # by gzb: is ./results/NTU/ or ./results/NTU120/
         # 2021-1215
-        output_dir = osp.join('./checkpoints', self.args.judge_dataSource) # ./checkpoints/${dataSource}/
-        output_dir = osp.join(output_dir, self.args.result_dir) # ./checkpoints/${dataSource}/result_dir
+        output_dir = './checkpoints'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         save_path = output_dir
-        self.save_path = save_path
+        self.save_path = output_dir
 
         dict_format = {
-            'ds': self.args.judge_dataSource, # cs or cv for ntu60, csub or cset for ntu120
-            'st': self.args.judge_inputDataShape, # 3 for shape (N, 300, 150), 5 for shape (N, C, T, V, M)
-            'dt': self.args.judge_dataType, # 0 for joint, 1 for bone
-            'net': self.args.network_label,
-            'cs': self.args.case, # 0 for cs(csub); 1 for cv(cset)
-            'task': self.args.num_classes,
-            'rot': self.args.judge_rot, # 0 for without rot, 1 for with rot on data processing
-            'seg': self.args.seg, # temp temporal, the num of frames
-            'epo': self.args.max_epochs
+            'ds': 'cs', # cs or cv for ntu60, csub or cset for ntu120
         } 
-        
-        '''
-        self.checkpoint = osp.join(save_path, 'DS{ds}ST{st}DT{dt}_Net{net}CS{cs}TA{task}_Rot{rot}Seg{seg}Epo{epo}_best.pth'.format(**dict_format))
-        self.csv_file = osp.join(save_path, 'DS{ds}ST{st}DT{dt}_Net{net}CS{cs}TA{task}_Rot{rot}Seg{seg}Epo{epo}_log.csv'.format(**dict_format))
-        self.lable_path = osp.join(save_path, 'DS{ds}ST{st}DT{dt}_Net{net}CS{cs}TA{task}_Rot{rot}Seg{seg}Epo{epo}_label.txt'.format(**dict_format))
-        self.pred_path = osp.join(save_path, 'DS{ds}ST{st}DT{dt}_Net{net}CS{cs}TA{task}_Rot{rot}Seg{seg}Epo{epo}_pred.txt'.format(**dict_format))
-        self.print_path = osp.join(save_path, 'DS{ds}ST{st}DT{dt}_Net{net}CS{cs}TA{task}_Rot{rot}Seg{seg}Epo{epo}_print_log.txt'.format(**dict_format))
-        '''
+    
 
         # 20211215
         self.checkpoint = osp.join(save_path, '{ds}_best.pth'.format(**dict_format))
@@ -171,52 +152,18 @@ class Processor():
             output = model(inputs.cuda(self.device))
             # by gzb: the async is dropped in python3.7
             target = target.cuda(self.device, non_blocking = True)
-
-            '''# 20211231
-            with torch.no_grad():
-                inputs = inputs.float().cuda(self.device)
-                target = target.long().cuda(self.device)
-            output = model(inputs)
-            '''
             
-            if self.args.network == 'CIGCN':
-                loss = criterion(output, target)
+            loss = criterion(output, target)
 
-                # measure accuracy and record loss
-                acc = utils_main.accuracy(output.data, target)
-                losses.update(loss.item(), inputs.size(0))
-                acces.update(acc[0], inputs.size(0))
+            # measure accuracy and record loss
+            acc = utils_main.accuracy(output.data, target)
+            losses.update(loss.item(), inputs.size(0))
+            acces.update(acc[0], inputs.size(0))
 
-                # backward
-                optimizer.zero_grad()  # clear gradients out before each mini-batch
-                loss.backward()
-                optimizer.step()
-
-
-            elif self.args.network == 'CascadeModel':
-                '''
-                list_loss = 
-                list_acc = []
-                
-                for idx in range(len(output)):
-                    #loss.append(criterion(output[idx], target)) # [loss1, loss2, loss3, loss4]
-                    list_loss.append(criterion(output[idx], target))
-                    list_acc.append(utils_main.accuracy(output.data, target))
-                    
-                acc = torch.mean(torch.from_numpy)
-                acces.update(acc[0], inputs.size(0))
-                '''
-                loss = criterion(output, target)
-
-                # measure accuracy and record loss
-                acc = utils_main.accuracy(output.data, target)
-                losses.update(loss.item(), inputs.size(0))
-                acces.update(acc[0], inputs.size(0))
-
-                # backward
-                optimizer.zero_grad()  # clear gradients out before each mini-batch
-                loss.backward()
-                optimizer.step()
+            # backward
+            optimizer.zero_grad()  # clear gradients out before each mini-batch
+            loss.backward()
+            optimizer.step()
 
 
             if (i + 1) % self.args.print_freq == 0:
