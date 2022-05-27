@@ -1,0 +1,40 @@
+# data feeder
+judge_dataSource: 'cs' # cs, cv for ntu60, csub, cset for ntu120
+
+judge_inputDataShape: 3 # 3 for sgn with shape: (N, 300, 150); 5 for other with shape: (N, C, T, V, M) which need to be translate into shape (N, 300, 150)
+judge_dataType: 1 # 0 for joint; 1 for bone
+judge_dataMode: 2 # 0 for only joint|bone, 1 for t_joint|t_bone, 2 for joint + t_joint | bone + t_bone
+
+debug: False
+mmap: False
+
+# model
+network: 'CIGCN'  # by gzb: ori is SGN, which can be STGCN, AGCN, AttAGCN, HCN, CIGCN, CTRGCN
+device: 3
+
+# path
+result_dir: 'cigcn_debug_cs_1215_bone_t2'
+
+# processor
+train: 0 # by gzb: 1 for train, and 0 for test
+seg: 20 # by gzb: 20210902, seg means the num of $joint_info (75,) of each sample, shape of $joint_info is: (75,)
+
+# optim
+batch_size: 64
+
+max_epochs: 120
+monitor: 'val_acc'
+lr: 0.001
+weight_decay: 0.0001
+lr_factor: 0.1
+workers: 16 # by gzb: original is 16, but we only have one GPU, so the workers must be 1.
+print_freq: 20
+
+# test
+batch_size_test: 32
+test_group: 15
+
+# resume training
+resume: 0
+
+
