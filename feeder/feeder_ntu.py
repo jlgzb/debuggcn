@@ -81,7 +81,7 @@ class NTUDataLoaders(object):
         self.val_X = self.test_X
         self.val_Y = self.test_Y
 
-        print ("GZB: End load data from {} npz file in feeder_ntu.py !!".format(self.metric))  # by gzb: now added code.
+        print ("GZB: End load data from CS npz file in feeder_ntu.py !!")  # by gzb: now added code.
 
     # by gzb: define the way that how to extract data from Dataset
     def collate_fn_fix_train(self, batch):

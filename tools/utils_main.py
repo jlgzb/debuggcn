@@ -17,7 +17,6 @@ from torch.autograd import Variable
 import torch.optim as optim
 from tqdm import tqdm
 
-from sklearn.model_selection import train_test_split
 import sys
 import yaml
 
@@ -147,45 +146,6 @@ def renameMultiLabel(label_Y):
 
     return list_label_Y
 
-def create_dataset_binary(args):
-    train_data_path = args.train_feeder_args['data_path'] # by gzb: cross sub
-    train_label_path = args.train_feeder_args['label_path']
-    test_data_path = args.test_feeder_args['data_path']
-    test_label_path = args.test_feeder_args['label_path']
-
-    # 14, 15, 16, 17, 18, 19, 20, 21
-    #list_labelIdx = [19, 20]
-    list_labelIdx = [13, 14, 15, 16, 17, 18, 19, 20] # 0-based: 13 indicate Action14
-    
-    # get label index, 0-based (0-based)
-    train_Y, list_trainIndex = getLabelIndex(train_label_path, list_labelIdx)
-    test_Y, list_testIndex = getLabelIndex(test_label_path, list_labelIdx)
-    
-    #print ("BY GZB: after preprocess labels, trainY: {}, {}".format(train_Y[:10], test_Y[:10]))
-
-    if len(list_labelIdx) == 2:
-        train_Y = renameBinaryLabel(train_Y)
-        test_Y = renameBinaryLabel(test_Y)
-    else:
-        train_Y = renameMultiLabel(train_Y)
-        test_Y = renameMultiLabel(test_Y)
-
-    #print ("BY GZB: after preprocess labels, trainY: {}; testY: {}".format(train_Y[:10], test_Y[:10]))
-    #print ("BY GZB: len: train: {}/ test: {}".format(len(train_Y), len(test_Y)))
-
-    #exit() # for debug
-
-    # load data
-    train_X = np.load(train_data_path) # by gzb: return shape: (N, C, T, V, M)
-    test_X = np.load(test_data_path) # by gzb: type: np.ndarray
-
-    train_X = np.array(train_X[list_trainIndex])
-    test_X = np.array(test_X[list_testIndex])
-
-    train_X, val_X, train_Y, val_Y = train_test_split(train_X, train_Y, test_size=0.05, random_state=10000)
-
-    return train_X, train_Y, val_X, val_Y, test_X, test_Y
-#'''
 
 def create_dataset_full(args):
     train_data_path = args.train_feeder_args['data_path'] # by gzb: cross sub

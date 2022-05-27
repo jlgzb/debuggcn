@@ -85,7 +85,7 @@ class Processor():
 
         train_loader = ntu_loaders.get_train_loader(64, 16)
         val_loader = ntu_loaders.get_val_loader(64, 16)
-        test_loader = ntu_loaders.get_test_loader(64, 16)
+        test_loader = ntu_loaders.get_test_loader(32, 16)
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -348,14 +348,6 @@ def getConfigArgs():
         parser.set_defaults(**fin_config_args)
 
     args = parser.parse_args()
-
-    # adaptive judge dataset and case
-    if args.judge_dataSource == 'cs' or args.judge_dataSource == 'cv':
-        args.dataset = 'NTU'
-        args.case = 0 if args.judge_dataSource == 'cs' else 1
-    if args.judge_dataSource == 'csub' or args.judge_dataSource == 'cset':
-        args.dataset = 'NTU120'
-        args.case = 0 if args.judge_dataSource == 'csub' else 1
 
     #args.num_classes = utils_main.get_num_classes(args.dataset)
 

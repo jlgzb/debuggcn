@@ -12,7 +12,7 @@ mmap: False
 network: 'CIGCN'  # by gzb: ori is SGN, which can be STGCN, AGCN, AttAGCN, HCN, CIGCN, CTRGCN
 
 # path
-result_dir: 'cigcn_debug_cs_1215_jnt_t2'
+result_dir: 'cigcn_debug_cs_0527_jnt_t2'
 
 # processor
 train: 1 # by gzb: 1 for train, and 0 for test
@@ -33,7 +33,5 @@ print_freq: 20
 batch_size_test: 32
 test_group: 20
 
-# resume training
-resume: 0
 
 
