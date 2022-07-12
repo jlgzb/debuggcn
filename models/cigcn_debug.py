@@ -294,7 +294,8 @@ class CIGCN(nn.Module):
         self.with_gcn_tcn_para = args.with_gcn_tcn_para
 
         self.graph = Graph(labeling_mode='spatial')
-        A = self.graph.A # (3, 25, 25)
+        #A = self.graph.A # (3, 25, 25)
+        A = self.graph.A_17_lr (5, 17, 17)
 
         ##### step 1: for input
         # idx info
