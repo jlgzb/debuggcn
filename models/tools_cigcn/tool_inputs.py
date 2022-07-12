@@ -4,6 +4,7 @@ from torch import nn
 import numpy as np
 
 
+
 class norm_data(nn.Module):
     r"""
     N: samples num
@@ -11,7 +12,7 @@ class norm_data(nn.Module):
     V: joint num
     T: frame num
     """
-    def __init__(self, norm_channels=3, num_node=25):
+    def __init__(self, norm_channels=3, num_node=17):
         super(norm_data, self).__init__()
 
         self.bn = nn.BatchNorm1d(norm_channels * num_node)
@@ -55,7 +56,7 @@ class block_idx_info(nn.Module):
         bs_test = args.batch_size_test if args != None else 32 # 20211216
         self.seg = args.seg if args != None else 20
         self.device = args.device if args != None else 0
-        V = 25
+        V = 17 # 25
 
         # create tensor
         sample_num = bs if train else bs_test * 20 # 32*5
@@ -106,7 +107,7 @@ class block_joint_input(nn.Module):
     
     def forward(self, input):
         N, T, V_C = input.shape
-        V = 25
+        V = 25 # revised on 20220712
         C = V_C // V
 
         ## joint info in each frame
@@ -117,6 +118,15 @@ class block_joint_input(nn.Module):
 
         input = input.permute(0, 3, 2, 1).contiguous() # shape: (N, C, V, T)
         #jnt = self.embed_joint(input) # position, i.t., x, y, z
+
+        # by gzb: 20220712
+        #delete_17 = [0, 2, 7, 11, 14, 18, 22, 24]
+        idx_17 = [1, 3, 4, 5, 6, 8, 9, 10, 12, 13, 15, 16, 17, 19, 20, 21, 23]
+        _device = input.get_device()
+        #input_new = np.delete(input.numpy(), delete_17, axis=2)
+        #input = torch.from_numpy(input_new)
+        input = torch.index_select(input, 2, torch.tensor(idx_17).cuda(_device)).cuda(_device)
+        V = 17
 
         ## motion joint info between frames
         t_jpt = input[:, :, :, 1:] - input[:, :, :, 0:-1] # (N, C, V, T-1)

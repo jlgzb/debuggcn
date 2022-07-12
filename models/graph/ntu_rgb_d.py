@@ -1,10 +1,3 @@
-import sys
-import numpy as np
-
-#sys.path.extend(['../'])
-#from graph import tools
-#import graph.tools_a as tools
-
 import numpy as np
 
 def get_sgp_mat(num_in, num_out, link):
@@ -47,6 +40,32 @@ def get_spatial_graph(num_node, self_link, inward, outward):
     In = normalize_digraph(edge2mat(inward, num_node))
     Out = normalize_digraph(edge2mat(outward, num_node))
     A = np.stack((I, In, Out))
+    return A
+
+def gzb_get_spatial_graph(num_node, self_link, inward, outward, neighbor_left, neighbor_right):
+    I = edge2mat(self_link, num_node)
+    In = normalize_digraph(edge2mat(inward, num_node))
+    Out = normalize_digraph(edge2mat(outward, num_node))
+    left = normalize_digraph(edge2mat(neighbor_left, num_node))
+    right = normalize_digraph(edge2mat(neighbor_right, num_node))
+    A = np.stack((I, In, Out, left, right))
+    return A
+
+def get_spatial_graph_6(num_node, self_link, inward, outward, neighbor_left, neighbor_right, neighbor_abs):
+    I = edge2mat(self_link, num_node)
+    In = normalize_digraph(edge2mat(inward, num_node))
+    Out = normalize_digraph(edge2mat(outward, num_node))
+    left = normalize_digraph(edge2mat(neighbor_left, num_node))
+    right = normalize_digraph(edge2mat(neighbor_right, num_node))
+    abs17 = normalize_digraph(edge2mat(neighbor_abs, num_node))
+    A = np.stack((I, In, Out, left, right, abs17))
+    return A
+
+def get_graph_1(num_node, self_link, inward, outward, neighbor_left, neighbor_right):
+    I = edge2mat(self_link, num_node)
+    in_out = normalize_digraph(edge2mat(inward + outward, num_node))
+    left_right = normalize_digraph(edge2mat(neighbor_left + neighbor_right, num_node))
+    A = np.stack((I, in_out, left_right))
     return A
 
 def normalize_adjacency_matrix(A):
@@ -96,6 +115,107 @@ inward = [(i - 1, j - 1) for (i, j) in inward_ori_index]
 outward = [(j, i) for (i, j) in inward]
 neighbor = inward + outward
 
+# by gzb: 20220706, 2 center
+'''
+left_right_index_in = [(13, 2), (14, 13), (15, 14), (15, 16), # left leg
+                 (5, 2), (6, 5), (7, 6), (8, 7), (23, 8), (22, 23), # left arm
+                 (17, 2), (18, 17), (19, 18), (20, 19), # right leg
+                 (9, 2), (10, 9), (11, 10), (12, 11), (25, 12), (24, 25)], # right arm
+'''
+left_index_in = [(13, 2), (14, 13), (15, 14), (15, 16), # left leg
+                 (5, 2), (6, 5), (7, 6), (8, 7), (22, 8), (22, 7)] # left arm
+
+right_index_in = [(17, 2), (18, 17), (19, 18), (20, 19), # right leg
+                 (9, 2), (10, 9), (11, 10), (12, 11), (24, 12), (24, 11)] # right arm
+
+inward_left = [(i - 1, j - 1) for (i, j) in left_index_in]
+inward_right = [(i - 1, j - 1) for (i, j) in right_index_in]
+outward_left = [(j, i) for (i, j) in inward_left]
+outward_right = [(j, i) for (i, j) in inward_right]
+neighbor_left = inward_left + outward_left
+neighbor_right = inward_right + outward_right
+
+# by gzb: 20220706,
+# 18 nodes:  [2, 4, 5, 6, 7, 9, 10, 11, 13, 14, 16, 17, 18, 20, 21, 22, 24]
+# new index: [1, 2, 3, 4, 5, 6, 7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17] 
+num_node_18 = 18 # deleted nodes: [1, 3, 15, 19, 8, 23, 12, 25]
+'''
+index_18 = [(13, 2), (14, 13), (16, 14),
+            (17, 2), (18, 17), (20, 18),
+            (5, 2), (6, 5), (7, 6), (22, 7),
+            (9, 2), (10, 9), (11, 10), (24, 11),
+            (3, 2), (4, 2), (21, 2),
+            (22, 21), (24, 21), (22, 24)]
+'''
+index_17 = [(9, 1), (10, 9), (11, 10),
+            (12, 1), (13, 12), (14, 13),
+            (3, 1), (4, 3), (5, 4), (16, 5),
+            (6, 1), (7, 6), (8, 7), (17, 8),
+            (15, 1), (2, 1),
+            (16, 15), (17, 15), (16, 17), # abstract link add on 20220709
+            (16, 2), (17, 2), # abstract link add on 20220711
+            (16, 11), (17, 11),
+            (14, 11)]
+        
+index_abs_17 = [(4, 1), (4, 2), (7, 1), (7, 2),
+                (16, 15), (17, 15), (16, 17),
+                (16, 1), (16, 2), (17, 1), (17, 2),
+                (16, 11), (17, 11),
+                (11, 9), (14, 9), (14, 11),
+                (8, 10), (5, 13)]
+
+#inward_17 = [(i - 1, j - 1) for (i, j) in index_17]
+inward_17 = [(i - 1, j - 1) for (i, j) in (index_17 + index_abs_17)]
+outward_17 = [(j, i) for (i, j) in inward_17]
+link_17 = [(i, i) for i in range(17)]
+left_idx_17 = [(9, 1), (10, 9), (11, 10), (3, 1), (4, 3), (5, 4), (16, 5),
+               (15, 1), (2, 1),
+               (16, 15), (16, 17),
+               (16, 2), (16, 11)]
+
+right_idx_17 = [(12, 1), (13, 12), (14, 13), (6, 1), (7, 6), (8, 7), (17, 8),
+                (2, 1),
+                (17, 15),
+                (17, 2), (17, 11), (14, 11)]
+
+# 20220711
+up_idx_17 = [(3, 1), (4, 3), (5, 4), (16, 15),
+             (6, 1), (7, 6), (8, 7), (17, 8),
+             (15, 1), (2, 1),
+             (16, 2), (17, 2),
+             (16, 17),
+             (5, 8), (4, 7)]
+
+# 20220711
+down_idx_17 = [(9, 1), (10, 9), (11, 10),
+               (12, 1), (13, 12), (14, 13),
+               (13, 10), (14, 10)]
+
+inward_left_17 = [(i - 1, j - 1) for (i, j) in left_idx_17]
+inward_right_17 = [(i - 1, j - 1) for (i, j) in right_idx_17]
+outward_left_17 = [(j, i) for (i, j) in inward_left_17]
+outward_right_17 = [(j, i) for (i, j) in inward_right_17]
+neighbor_left_17 = inward_left_17 + outward_left_17
+neighbor_right_17 = inward_right_17 + outward_right_17
+
+inward_abs_17 = [(i - 1, j - 1) for (i, j) in index_abs_17]
+outward_abs_17 = [(j, i) for (i, j) in inward_abs_17]
+neighbor_abs_17 = inward_abs_17 + outward_abs_17
+
+
+# 20220711
+inward_up_17 = [(i - 1, j - 1) for (i, j) in up_idx_17]
+inward_down_17 = [(i - 1, j - 1) for (i, j) in down_idx_17]
+outward_up_17 = [(j, i) for (i, j) in inward_up_17]
+outward_down_17 = [(j, i) for (i, j) in inward_down_17]
+neighbor_up_17 = inward_up_17 + outward_up_17
+neighbor_down_17 = inward_down_17 + outward_down_17
+
+
+
+
+
+# other dataset
 num_node_1 = 11
 indices_1 = [0, 3, 5, 7, 9, 11, 13, 15, 17, 19, 20]
 self_link_1 = [(i, i) for i in range(num_node_1)]
@@ -111,6 +231,10 @@ inward_ori_index_2 = [(0, 4), (1, 4), (2, 4), (3, 4), (0, 1), (2, 3)]
 inward_2 = [(i - 1, j - 1) for (i, j) in inward_ori_index_2]
 outward_2 = [(j, i) for (i, j) in inward_2]
 neighbor_2 = inward_2 + outward_2
+
+
+
+
 
 class Graph:
     def __init__(self, labeling_mode='spatial', scale=1):
@@ -130,6 +254,15 @@ class Graph:
         self.A1_A2 = edge2mat(neighbor_1, num_node_1) + np.eye(num_node_1)
         self.A1_A2 = (self.A1_A2 / np.sum(self.A1_A2, axis=1, keepdims=True))[indices_2]
 
+        # by gzb: 20220706
+        self.A_lr = self.gzb_get_adjacency_matrix(labeling_mode)
+        self.A_inout_lr = self.get_A_inout_lr(labeling_mode)
+        self.A_17 = get_spatial_graph(17, link_17, inward_17, outward_17)
+        self.A_17_lr = gzb_get_spatial_graph(17, link_17, inward_17, outward_17, neighbor_left_17, neighbor_right_17)
+        self.A_17_ud = gzb_get_spatial_graph(17, link_17, inward_17, outward_17, neighbor_up_17, neighbor_down_17)
+        self.A_17_lrud = gzb_get_spatial_graph(17, link_17, neighbor_left_17, neighbor_right_17, neighbor_up_17, neighbor_down_17)
+        self.A_17_lrabs = get_spatial_graph_6(17, link_17, inward_17, outward_17, neighbor_left_17, neighbor_right_17, neighbor_abs_17)
+
 
     def get_adjacency_matrix(self, labeling_mode=None):
         if labeling_mode is None:
@@ -139,4 +272,22 @@ class Graph:
         else:
             raise ValueError()
         return A
+    
 
+    def gzb_get_adjacency_matrix(self, labeling_mode=None):
+        if labeling_mode is None:
+            return self.A
+        if labeling_mode == 'spatial':
+            A = gzb_get_spatial_graph(num_node, self_link, inward, outward, neighbor_left, neighbor_right)
+        else:
+            raise ValueError()
+        return A
+
+    def get_A_inout_lr(self, labeling_mode=None):
+        if labeling_mode is None:
+            return self.A
+        if labeling_mode == 'spatial':
+            A = get_graph_1(num_node, self_link, inward, outward, neighbor_left, neighbor_right)
+        else:
+            raise ValueError()
+        return A

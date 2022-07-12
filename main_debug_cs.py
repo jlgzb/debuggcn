@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 import torch
 
 import argparse
@@ -203,12 +203,7 @@ def main():
 
     ### Test
     args.train = 0
-    if args.network == 'HCN':
-        model = HCN()
-    elif args.network == 'SGN':
-        model = SGN(args.num_classes, args.dataset, args.seg, args)
-    elif args.network == 'CIGCN':
-        model = CIGCN(args.num_classes, args.dataset, args.seg, args)
+    model = CIGCN(args.num_classes, args.dataset, args.seg, args)
 
     model = model.cuda()
     test(test_loader, model, checkpoint, lable_path, pred_path)

@@ -285,6 +285,114 @@ class CIGCN(nn.Module):
     def __init__(self, args):
         super(CIGCN, self).__init__()
         num_classes = args.num_classes if args != None else 60
+        V = 17
+
+        # 20211229
+        self.with_attention = args.with_att
+        self.with_block_tcn = args.with_block_tcn
+        self.with_gcn_frm = args.with_gcn_frm
+        self.with_gcn_tcn_para = args.with_gcn_tcn_para
+
+        self.graph = Graph(labeling_mode='spatial')
+        A = self.graph.A # (3, 25, 25)
+
+        ##### step 1: for input
+        # idx info
+        self.block_idx_info = block_idx_info(args, out_jpt_channels=64, out_frm_channels=64*4)
+
+        # joint + t_jnt; bone + t_bone
+        # decide what data be used.
+        judge_dataType = args.judge_dataType if args != None else 0 # 0 for joint, 1 for bone
+        mode_data = args.judge_dataMode if args != None else 2 # 0 for only joint|bone, 1 for t_joint|t_bone, 2 for joint + t_joint | bone + t_bone
+        if judge_dataType == 0:
+            self.block_input_info = block_joint_input(in_channels=3, out_channels=64, mode=mode_data)
+        elif judge_dataType == 1:
+            self.block_input_info = block_bone_input(in_channels=3, out_channels=64, mode=mode_data)
+              
+        ##### 1 for GCN module
+        #self.block_gcn = block_gcn(add_idxFrm=True)
+        self.block_gcn = block_gcn_debug(add_idxFrm=True, attention=self.with_attention, gcn_frm=self.with_gcn_frm) # 20211229, adaptive by attention and gcn_frame for debyg
+        #self.block_gcn = block_gcn(add_idxFrm=True, A=A)
+
+        ##### 2 for TCN module
+        if self.with_block_tcn:
+            if self.with_gcn_tcn_para:
+                self.block_tcn = block_tcn(add_idxFrm=True)
+                in_c = 512
+            else:
+                self.block_tcn = block_tcn(add_idxFrm=True, in_channels=256)
+                in_c = 256
+
+        else:
+            in_c = 256
+
+        ##### 3 for classification
+        self.module_tcn = unit_tcn(in_c, 512)
+        self.maxpool = nn.AdaptiveMaxPool2d((1, 1))
+        self.fc1 = nn.Linear(512, num_classes)
+
+        # initial
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                '''
+                n = m.out_channels
+                k1 = m.kernel_size[0]
+                k2 = m.kernel_size[1]
+                n = n * k1 * k2
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                '''
+
+                ''' from sgn
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                '''
+
+                conv_init(m)
+            if isinstance(m, nn.BatchNorm2d):
+                bn_init(m, 1)
+
+    def forward(self, input):
+
+        # step 1: process input info
+        idx_jpt, idx_frm = self.block_idx_info() # (N, 64, V, T) and (N, 64*4, V, T)
+
+        # joint or bone
+        input_info = self.block_input_info(input) # (N, 64, 25, T)
+        
+        input = torch.cat([input_info, idx_jpt], 1)  # (N, 64*2, V, T)
+
+        ##### 1 for GCN module
+        gcn_output = self.block_gcn(input, idx_frm)# (N, 256, V, T)
+        #gcn_output_g1 = self.block_gcn_g1(input_g1, idx_frm) # (N,256, 11, T)
+
+        if self.with_block_tcn:
+            if self.with_gcn_tcn_para:
+                ##### 2 for TCN module
+                tcn_output = self.block_tcn(input, idx_frm) # (N, 256, V, T)
+                tcn_gcn_input = torch.cat([tcn_output, gcn_output], dim=1) # (N, 512, V, T)
+            else:
+                tcn_output = self.block_tcn(gcn_output, idx_frm)
+                tcn_gcn_input = tcn_output # (N, 256, V, T)
+
+        else:
+            tcn_gcn_input = gcn_output # (N, 256, V, T)
+
+        ##### 3 classification
+        output = self.module_tcn(tcn_gcn_input) # (N, 512, 1, 20)
+        #output_g1 = self.module_tcn_g1(gcn_output_g1) # (N, 512, 1, 20)
+        output = self.maxpool(output) # + output_g1) # (N, 512, 1, 1)
+
+        ## flatten
+        output = torch.flatten(output, start_dim=1, end_dim=-1) # (N, 512) 
+        output = self.fc1(output)
+
+        return output
+
+
+class CIGCN_before20220712(nn.Module):
+    def __init__(self, args):
+        super(CIGCN_before20220712, self).__init__()
+        num_classes = args.num_classes if args != None else 60
         V = 25
 
         # 20211229
